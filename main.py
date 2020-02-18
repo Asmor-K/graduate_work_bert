@@ -4,7 +4,6 @@ import logging
 from pandas import DataFrame
 logging.basicConfig(level=logging.INFO)
 
-# Load pre-trained model tokenizer (vocabulary)
 modelpath = "bert-base-multilingual-cased"
 tokenizer = BertTokenizer.from_pretrained(modelpath)
 
@@ -25,7 +24,6 @@ def my_tokenizer(str):
 
 my_tokenized_text = my_tokenizer(text)
 
-# Load pre-trained model (weights)
 model = BertForMaskedLM.from_pretrained(modelpath)
 model.eval()
 
@@ -34,17 +32,17 @@ final_dict = dict()
 for subword_index, subword in enumerate(my_tokenized_text[1]):
     my_tokenized_text[1][subword_index] = '[MASK]'
     indexed_tokens = tokenizer.convert_tokens_to_ids(my_tokenized_text[1])
-    # Define sentence A and B indices associated to 1st and 2nd sentences (see paper)
-    segments_ids = [1] * len(my_tokenized_text[1])
-    segments_ids[0] = 0
-    segments_ids[1] = 0
-    segments_ids[2] = 0
-    segments_ids[3] = 0
-    segments_ids[4] = 0
-    # Convert inputs to PyTorch tensors
+
+    # segments_ids = [1] * len(my_tokenized_text[1])
+    # segments_ids[0] = 0
+    # segments_ids[1] = 0
+    # segments_ids[2] = 0
+    # segments_ids[3] = 0
+    # segments_ids[4] = 0
+
     tokens_tensor = torch.tensor([indexed_tokens])
-    segments_tensors = torch.tensor([segments_ids])
-    # Predict all tokens
+    # segments_tensors = torch.tensor([segments_ids])
+
     predictions = model(tokens_tensor)
     top_100 = list(())
     for value, ids in zip(*torch.topk(predictions[0, subword_index], 100, largest=True)):
@@ -53,7 +51,7 @@ for subword_index, subword in enumerate(my_tokenized_text[1]):
     final_dict[subword] = top_100
     my_tokenized_text[1][subword_index] = subword
 
-print("Original:", text)
+print("Input text:", text)
 print(my_tokenized_text[0])
 print(my_tokenized_text[1])
 

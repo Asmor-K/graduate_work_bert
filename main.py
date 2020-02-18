@@ -1,7 +1,7 @@
 import torch
 from pytorch_pretrained_bert import BertTokenizer, BertModel, BertForMaskedLM
 import logging
-
+from pandas import DataFrame
 logging.basicConfig(level=logging.INFO)
 
 # Load pre-trained model tokenizer (vocabulary)
@@ -15,6 +15,8 @@ def my_tokenizer(str):
     dictionary = dict()
     tokenized_text = list(())
     for word in str.split():
+        # if word == "[CLS]" or word == "[SEP]":
+        #     continue
         tokenized_word = tokenizer.tokenize(word)
         tokenized_text.extend(tokenized_word)
         dictionary[word] = tokenized_word
@@ -55,9 +57,15 @@ print("Original:", text)
 print(my_tokenized_text[0])
 print(my_tokenized_text[1])
 
+export_dict = dict()
+
 for key, value in final_dict.items():
-  print("-----Subword:", key, "------")
-  for (predicted_token, value) in value:
-      print("Predicated token:", predicted_token, "with value:", value)
+    print("-----Subword:", key, "------")
+    export_dict[key] = value
+    for (predicted_token, value) in value:
+        print("Predicated token:", predicted_token, "with value:", value)
+
+excel_frame = DataFrame(export_dict)
+excel_frame.to_excel('output.xlsx', sheet_name='Sheet1')
 
 

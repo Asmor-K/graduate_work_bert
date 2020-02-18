@@ -1,46 +1,63 @@
 import torch
 from pytorch_pretrained_bert import BertTokenizer, BertModel, BertForMaskedLM
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 # Load pre-trained model tokenizer (vocabulary)
-modelpath = "bert-base-uncased"
+modelpath = "bert-base-multilingual-cased"
 tokenizer = BertTokenizer.from_pretrained(modelpath)
 
-text = "dummy. although he had already eaten a large meal, he was still very hungry."
-target = "dummy"
-tokenized_text = tokenizer.tokenize(text)
+text = "[CLS] dummy. [SEP] although he had already eaten a large meal, he was still very hungry [SEP]"
 
-# Mask a token that we will try to predict back with `BertForMaskedLM`
-masked_index = tokenized_text.index(target)
-tokenized_text[masked_index] = '[MASK]'
 
-# Convert token to vocabulary indices
-indexed_tokens = tokenizer.convert_tokens_to_ids(tokenized_text)
-# Define sentence A and B indices associated to 1st and 2nd sentences (see paper)
-segments_ids = [1] * len(tokenized_text)
-# this is for the dummy first sentence.
-segments_ids[0] = 0
-segments_ids[1] = 0
+def my_tokenizer(str):
+    dictionary = dict()
+    tokenized_text = list(())
+    for word in str.split():
+        tokenized_word = tokenizer.tokenize(word)
+        tokenized_text.extend(tokenized_word)
+        dictionary[word] = tokenized_word
+    return (dictionary, tokenized_text)
 
-# Convert inputs to PyTorch tensors
-tokens_tensor = torch.tensor([indexed_tokens])
-segments_tensors = torch.tensor([segments_ids])
+
+my_tokenized_text = my_tokenizer(text)
+
 # Load pre-trained model (weights)
 model = BertForMaskedLM.from_pretrained(modelpath)
 model.eval()
 
-# Predict all tokens
-predictions = model(tokens_tensor, segments_tensors)
-predicted_index = torch.argmax(predictions[0, masked_index]).item()
-predicted_token = tokenizer.convert_ids_to_tokens([predicted_index])
+final_dict = dict()
+
+for subword_index, subword in enumerate(my_tokenized_text[1]):
+    my_tokenized_text[1][subword_index] = '[MASK]'
+    indexed_tokens = tokenizer.convert_tokens_to_ids(my_tokenized_text[1])
+    # Define sentence A and B indices associated to 1st and 2nd sentences (see paper)
+    segments_ids = [1] * len(my_tokenized_text[1])
+    segments_ids[0] = 0
+    segments_ids[1] = 0
+    segments_ids[2] = 0
+    segments_ids[3] = 0
+    segments_ids[4] = 0
+    # Convert inputs to PyTorch tensors
+    tokens_tensor = torch.tensor([indexed_tokens])
+    segments_tensors = torch.tensor([segments_ids])
+    # Predict all tokens
+    predictions = model(tokens_tensor)
+    top_100 = list(())
+    for value, ids in zip(*torch.topk(predictions[0, subword_index], 100, largest=True)):
+        predicted_token = tokenizer.convert_ids_to_tokens([ids.item()])
+        top_100.append((predicted_token, value.item()))
+    final_dict[subword] = top_100
+    my_tokenized_text[1][subword_index] = subword
 
 print("Original:", text)
-print("Masked:", " ".join(tokenized_text))
+print(my_tokenized_text[0])
+print(my_tokenized_text[1])
 
-print("Predicted token:", predicted_token)
-print("Other options:")
-# just curious about what the next few options look like.
-for i in range(10):
-    predictions[0, masked_index, predicted_index] = -11100000
-    predicted_index = torch.argmax(predictions[0, masked_index]).item()
-    predicted_token = tokenizer.convert_ids_to_tokens([predicted_index])
-    print(predicted_token)
+for key, value in final_dict.items():
+  print("-----Subword:", key, "------")
+  for (predicted_token, value) in value:
+      print("Predicated token:", predicted_token, "with value:", value)
+
+

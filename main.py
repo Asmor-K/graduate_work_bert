@@ -1,59 +1,63 @@
 import torch
-from transformers import AutoTokenizer, AutoModel
+from transformers import AutoTokenizer, BertTokenizer, BertForMaskedLM, AutoModelWithLMHead
 import logging
 from pandas import DataFrame
 logging.basicConfig(level=logging.INFO)
 
 modelpath = "DrMatters/rubert_cased"
-tokenizer = AutoTokenizer.from_pretrained(modelpath)
+tokenizer = BertTokenizer.from_pretrained(modelpath)
+model = AutoModelWithLMHead.from_pretrained(modelpath)
 
-text = "Британский дизайнер и предприниматель, внук королевы Великобритании Елизаветы II Дэвид Армстронг-Джонс и его супруга Серена решили подать на развод"
+model.eval()
+
+text = "Развеиваем завесу мистики над управлением памятью в программном обеспечении и подробно рассматриваем возможности, предоставляемые современными языками программирования"
+
+print(tokenizer.encode(text))
 
 
-def my_tokenizer(str):
+def my_tokenizer(*str):
     dictionary = dict()
     tokenized_text = list(())
     for word in str.split():
-        # if word == "[CLS]" or word == "[SEP]":
-        #     continue
         tokenized_word = tokenizer.tokenize(word)
         tokenized_text.extend(tokenized_word)
         dictionary[word] = tokenized_word
     return (dictionary, tokenized_text)
 
-
-my_tokenized_text = my_tokenizer(text)
-
-model = AutoModel.from_pretrained(modelpath)
-model.eval()
+splitted_text = text.split()
 
 final_dict = dict()
 
-for subword_index, subword in enumerate(my_tokenized_text[1]):
-    my_tokenized_text[1][subword_index] = '[MASK]'
-    indexed_tokens = tokenizer.convert_tokens_to_ids(my_tokenized_text[1])
+for word_index, word in enumerate(splitted_text):
+    splitted_text[word_index] = '[MASK]'
 
-    # segments_ids = [1] * len(my_tokenized_text[1])
-    # segments_ids[0] = 0
-    # segments_ids[1] = 0
-    # segments_ids[2] = 0
-    # segments_ids[3] = 0
-    # segments_ids[4] = 0
+    masked_index = None
+    tokenized_text = list(())
+
+    for word2 in splitted_text:
+        tokenized_word = tokenizer.tokenize(word2)
+        tokenized_text.extend(tokenized_word)
+        if word2 == '[MASK]':
+            masked_index = len(tokenized_text) - 1
+    
+    print(masked_index)
+    print(tokenized_text)
+
+    indexed_tokens = tokenizer.convert_tokens_to_ids(tokenized_text)
+
+    print(indexed_tokens)
 
     tokens_tensor = torch.tensor([indexed_tokens])
-    # segments_tensors = torch.tensor([segments_ids])
 
     predictions = model(tokens_tensor)[0]
     top_100 = list(())
-    for value, ids in zip(*torch.topk(predictions[0, subword_index], 100, largest=True)):
-        predicted_token = tokenizer.decode([ids.item()])
+    for value, ids in zip(*torch.topk(predictions[0, masked_index], 100, largest=True)):
+        predicted_token = tokenizer.convert_ids_to_tokens([ids.item()])
         top_100.append((predicted_token, value.item()))
-    final_dict[subword] = top_100
-    my_tokenized_text[1][subword_index] = subword
+    final_dict[word] = top_100
+    splitted_text[word_index] = word
 
 print("Input text:", text)
-print(my_tokenized_text[0])
-print(my_tokenized_text[1])
 
 export_dict = dict()
 

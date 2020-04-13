@@ -1,7 +1,11 @@
 import torch
 from transformers import AutoTokenizer, BertTokenizer, BertForMaskedLM, AutoModelWithLMHead
 import logging
+import openpyxl
+import pymorphy2
 from pandas import DataFrame
+from spacy.lang.ru import Russian
+
 logging.basicConfig(level=logging.INFO)
 
 modelpath = "DrMatters/rubert_cased"
@@ -14,18 +18,21 @@ text = "Развеиваем завесу мистики над управлен
 
 print(tokenizer.encode(text))
 
+# def my_tokenizer(*str):
+#     dictionary = dict()
+#     tokenized_text = list(())
+#     for word in str.split():
+#         tokenized_word = tokenizer.tokenize(word)
+#         tokenized_text.extend(tokenized_word)
+#         dictionary[word] = tokenized_word
+#     return (dictionary, tokenized_text)
 
-def my_tokenizer(*str):
-    dictionary = dict()
-    tokenized_text = list(())
-    for word in str.split():
-        tokenized_word = tokenizer.tokenize(word)
-        tokenized_text.extend(tokenized_word)
-        dictionary[word] = tokenized_word
-    return (dictionary, tokenized_text)
+splitted_text = list(())
 
-splitted_text = text.split()
-
+nlp = Russian()
+doc = nlp(text)
+for token in doc:
+    splitted_text.append(token.text)
 final_dict = dict()
 
 for word_index, word in enumerate(splitted_text):

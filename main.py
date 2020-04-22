@@ -2,18 +2,17 @@ import torch
 from transformers import AutoTokenizer, BertTokenizer, BertForMaskedLM, AutoModelWithLMHead
 import logging
 import openpyxl
-import pymorphy2
 import gensim
-from pandas import DataFrame
-from spacy.lang.ru import Russian
-
+from pandas import DataFrame, ExcelWriter
+import spacy
+import pymorphy2
+import udpipe
 
 logging.basicConfig(level=logging.INFO)
 
 modelpath = "DrMatters/rubert_cased"
 tokenizer = BertTokenizer.from_pretrained(modelpath)
 model = AutoModelWithLMHead.from_pretrained(modelpath)
-morph = pymorphy2.MorphAnalyzer()
 model.eval()
 
 text = "он подарил мне блестящий железный меч"
@@ -31,7 +30,8 @@ print(tokenizer.encode(text))
 
 splitted_text = list(())
 
-nlp = Russian()
+# https://github.com/buriy/spacy-ru
+nlp = spacy.load("ru2")
 doc = nlp(text)
 for token in doc:
     splitted_text.append(token.text)
@@ -72,32 +72,38 @@ taiga_skipgram = gensim.models.KeyedVectors.load_word2vec_format("taiga_skipgram
 export_dict_fasttext = dict()
 export_dict_skipgram = dict()
 
-for word in splitted_text:
+model = udpipe.init()
+process_pipeline = udpipe.Pipeline(model, 'tokenize', udpipe.Pipeline.DEFAULT, udpipe.Pipeline.DEFAULT, 'conllu')
+for word in doc:
     # есть ли слово в модели? Может быть, и нет
-    p = morph.parse(word)[0]
-    preproced_word = word + "_" + str(p.tag).split(',')[0]
-    if preproced_word in taiga_fasttext:
-        print(preproced_word)
+    res = udpipe.unify_sym(str(word))
+    preproced_word = udpipe.process(process_pipeline, text=res, keep_punct=True)[0]
+    if word in taiga_fasttext:
+        print(word)
+        top_100 = list(())
         # выдаем 10 ближайших соседей слова:
-        for i in taiga_fasttext.most_similar(positive=[preproced_word], topn=100):
+        for i in taiga_fasttext.most_similar(positive=[str(word)], topn=100):
             print('taiga_fasttext \n')
             # слово + коэффициент косинусной близости
             print(i[0], i[1])
-            export_dict_fasttext[preproced_word] = i
+            top_100.append((i[0], i[1]))
         print('\n')
+        export_dict_fasttext[word] = top_100
     else:
         # Увы!
-        print(preproced_word + ' is not present in the taiga_fasttext model')
-        export_dict_fasttext[preproced_word] = "NOT FOUND"
+        print(word + ' is not present in the taiga_fasttext model')
+        export_dict_fasttext[word] = "NOT FOUND"
     if preproced_word in taiga_skipgram:
         print(preproced_word)
+        top_100 = list(())
         # выдаем 10 ближайших соседей слова:
         for i in taiga_skipgram.most_similar(positive=[preproced_word], topn=100):
             print('taiga_skipgram \n')
             # слово + коэффициент косинусной близости
             print(i[0], i[1])
-            export_dict_skipgram[preproced_word] = i
+            top_100.append((i[0], i[1]))
         print('\n')
+        export_dict_skipgram[preproced_word] = top_100
     else:
         # Увы!
         print(preproced_word + ' is not present in the taiga_skipgram model')
@@ -113,9 +119,8 @@ for key, value in final_dict.items():
     for (predicted_token, value) in value:
         print("Predicated token:", predicted_token, "with value:", value)
 
-excel_frame = DataFrame(export_dict)
-excel_frame.to_excel('output.xlsx', sheet_name='Bert')
-excel_frame = DataFrame(export_dict_fasttext)
-excel_frame.to_excel('output.xlsx', sheet_name='FastText')
-excel_frame = DataFrame(export_dict_skipgram)
-excel_frame.to_excel('output.xlsx', sheet_name='Skipgram')
+writer = ExcelWriter('output.xlsx', engine='xlsxwriter')
+DataFrame(export_dict).to_excel(writer, sheet_name='Bert')
+DataFrame(export_dict_fasttext).to_excel(writer, sheet_name='FastText')
+DataFrame(export_dict_skipgram).to_excel(writer, sheet_name='Skipgram')
+writer.save()

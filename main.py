@@ -33,11 +33,15 @@ splitted_text = list(())
 # https://github.com/buriy/spacy-ru
 nlp = spacy.load("ru2")
 doc = nlp(text)
+splitted_text.append("[CLS]")
 for token in doc:
     splitted_text.append(token.text)
+splitted_text.append("[SEP]")
 final_dict = dict()
 
 for word_index, word in enumerate(splitted_text):
+    if word == "[SEP]" or word == "[CLS]":
+        continue
     splitted_text[word_index] = '[MASK]'
 
     masked_index = None
@@ -75,6 +79,8 @@ export_dict_skipgram = dict()
 model = udpipe.init()
 process_pipeline = udpipe.Pipeline(model, 'tokenize', udpipe.Pipeline.DEFAULT, udpipe.Pipeline.DEFAULT, 'conllu')
 for word in doc:
+    if str(word) == "[SEP]" or str(word) == "[CLS]":
+        continue
     # есть ли слово в модели? Может быть, и нет
     res = udpipe.unify_sym(str(word))
     preproced_word = udpipe.process(process_pipeline, text=res, keep_punct=True)[0]

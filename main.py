@@ -25,7 +25,7 @@ tokenizer = BertTokenizer.from_pretrained(modelpath)
 model = AutoModelWithLMHead.from_pretrained(modelpath)
 model.eval()
 
-text = "мы купили хорошую вещь"
+text = "он подарил мне блестящий меч"
 my_predictions = PredictionsForText(text)
 topn = 30
 print(tokenizer.encode(text))
@@ -39,7 +39,7 @@ doc = nlp(text)
 splitted_text.append("[CLS]")
 for token in doc:
     splitted_text.append(token.text)
-splitted_text.append("[SEP]")
+# splitted_text.append("[SEP]")
 final_dict = dict()
 
 for word_index, word in enumerate(splitted_text):
@@ -71,7 +71,7 @@ for word_index, word in enumerate(splitted_text):
         predicted_token = tokenizer.convert_ids_to_tokens([ids.item()])
         top_100.append((predicted_token, value.item()))
         print(predicted_token)
-        my_predictions.add_bert(word, predicted_token[0], value.item())
+        my_predictions.add_bert(word, predicted_token[0], value.item(), tokenizer)
     final_dict[word] = top_100
     splitted_text[word_index] = word
 
@@ -132,6 +132,21 @@ DataFrame(export_dict_fasttext).to_excel(writer, sheet_name='FastText')
 DataFrame(export_dict_skipgram).to_excel(writer, sheet_name='Skipgram')
 writer.save()
 my_predictions.find_all(tokenizer, process_pipeline)
+print("---------BRET----------")
+print(my_predictions.sinonimize())
+print(my_predictions.sinonimize())
+print(my_predictions.sinonimize())
+print(my_predictions.sinonimize())
+print("---------SKIPGRAM----------")
+print(my_predictions.sinonimize_skipgram())
+print(my_predictions.sinonimize_skipgram())
+print(my_predictions.sinonimize_skipgram())
+print(my_predictions.sinonimize_skipgram())
+print("----------FASTTEXT---------")
+print(my_predictions.sinonimize_fasttext())
+print(my_predictions.sinonimize_fasttext())
+print(my_predictions.sinonimize_fasttext())
+print(my_predictions.sinonimize_fasttext())
 logger.info("------------------BEFORE PRING--------------")
 print(my_predictions)
 logger.info("Done!")
